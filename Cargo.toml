@@ -16,6 +16,7 @@ heapless = "0.5"
 byteorder = { version = "1.4", default-features = false }
 httparse = { version = "1.4", default-features = false }
 rand_core = "0.6"
+smoltcp = { version = "0.7.1", default-features = false, features = ["socket-tcp", "ethernet", "proto-dhcpv4", "proto-ipv4" ], optional=true }
 
 [dev-dependencies]
 rand = "0.8.3"
@@ -25,3 +26,4 @@ rand = "0.8.3"
 default = ["std"]
 # default = []
 std = []
+smoltcp_support = ["smoltcp"]

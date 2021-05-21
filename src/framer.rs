@@ -31,6 +31,21 @@ pub trait Stream<E> {
     fn write_all(&mut self, buf: &[u8]) -> Result<(), E>;
 }
 
+#[cfg(feature = "smoltcp")]
+impl<'a> Stream<smoltcp::Error> for &mut smoltcp::socket::TcpSocket<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, smoltcp::Error> {
+        self.recv_slice(buf)
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> Result<(), smoltcp::Error> {
+        if let Err(e) = self.send_slice(buf) {
+            Err(e)
+        } else {
+            Ok(())
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum FramerError<E> {
     Io(E),
