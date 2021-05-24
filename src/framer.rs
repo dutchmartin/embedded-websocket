@@ -32,7 +32,7 @@ pub trait Stream<E> {
 }
 
 #[cfg(feature = "smoltcp")]
-impl<'a> Stream<smoltcp::Error> for &mut smoltcp::socket::SocketRef<'a, smoltcp::socket::TcpSocket<'a>> {
+impl Stream<smoltcp::Error> for smoltcp::socket::SocketRef<'_, smoltcp::socket::TcpSocket<'_>> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, smoltcp::Error> {
         self.recv_slice(buf)
     }

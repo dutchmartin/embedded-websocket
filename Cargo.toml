@@ -23,7 +23,7 @@ rand = "0.8.3"
 
 # see readme for no_std support
 [features]
-default = ["std","smoltcp_support"]
+default = ["std"]
 # default = []
 std = []
 smoltcp_support = ["smoltcp"]
