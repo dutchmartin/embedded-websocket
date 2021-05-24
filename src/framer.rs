@@ -38,10 +38,9 @@ impl Stream<smoltcp::Error> for smoltcp::socket::SocketRef<'_, smoltcp::socket::
     }
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), smoltcp::Error> {
-        if let Err(e) = self.send_slice(buf) {
-            Err(e)
-        } else {
-            Ok(())
+        match self.send_slice(&buf) {
+            Ok(_) => Ok(()),
+            Err(error) => Err(error)
         }
     }
 }
