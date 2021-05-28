@@ -5,11 +5,7 @@
 // NOTE: if you are using the standard library then you can use the built in Read and Write traits from std otherwise
 //       you have to implement the Read and Write traits specified below
 
-use crate::{
-    WebSocket, WebSocketCloseStatusCode, WebSocketContext, WebSocketOptions,
-    WebSocketReceiveMessageType, WebSocketSendMessageType, WebSocketState, WebSocketSubProtocol,
-    WebSocketType,
-};
+use crate::{WebSocket, WebSocketCloseStatusCode, WebSocketContext, WebSocketKey, WebSocketOptions, WebSocketReceiveMessageType, WebSocketSendMessageType, WebSocketState, WebSocketSubProtocol, WebSocketType};
 use core::{cmp::min, str::Utf8Error};
 use rand_core::RngCore;
 
@@ -39,7 +35,7 @@ impl Stream<smoltcp::Error> for smoltcp::socket::SocketRef<'_, smoltcp::socket::
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), smoltcp::Error> {
         match self.send_slice(&buf) {
-            Ok(_) => Ok(()),
+            Ok(_i) => Ok(()),
             Err(error) => Err(error)
         }
     }
@@ -112,6 +108,55 @@ where
             }
         }
     }
+
+    pub fn send_connect<E>(
+        &mut self,
+        stream: &mut impl Stream<E>,
+        websocket_options: &WebSocketOptions,
+    ) -> Result<WebSocketKey, FramerError<E>> {
+        let (len, web_socket_key) = self
+            .websocket
+            .client_connect(&websocket_options, &mut self.write_buf)
+            .map_err(FramerError::WebSocket)?;
+        stream
+            .write_all(&self.write_buf[..len])
+            .map_err(FramerError::Io)?;
+        *self.read_cursor = 0;
+        Ok(web_socket_key)
+    }
+
+    pub fn receive_connect<E>(
+        &mut self,
+        stream: &mut impl Stream<E>,
+        web_socket_key: &WebSocketKey
+    ) -> Result<Option<WebSocketSubProtocol>, Option<FramerError<E>>> {
+        // read the response from the server and check it to complete the opening handshake
+        let received_size = stream
+            .read(&mut self.read_buf[*self.read_cursor..])
+            .map_err(FramerError::Io)?;
+
+        match self.websocket.client_accept(
+            &web_socket_key,
+            &self.read_buf[..*self.read_cursor + received_size],
+        ) {
+            Ok((len, sub_protocol)) => {
+                // "consume" the HTTP header that we have read from the stream
+                // read_cursor would be 0 if we exactly read the HTTP header from the stream and nothing else
+                *self.read_cursor += received_size - len;
+                return Ok(sub_protocol);
+            }
+            Err(crate::Error::HttpHeaderIncomplete) => {
+                *self.read_cursor += received_size;
+                // next invocation of this function can succeed.
+                return Err(None);
+            }
+            Err(e) => {
+                *self.read_cursor += received_size;
+                return Err(Some(FramerError::WebSocket(e)));
+            }
+        }
+    }
+
 }
 
 impl<'a, TRng> Framer<'a, TRng, crate::Server>
@@ -288,7 +333,7 @@ where
                             stream,
                             frame_buf,
                             ws_result.len_to,
-                            WebSocketSendMessageType::Pong,
+                             WebSocketSendMessageType::Pong,
                         )?;
                     }
                     // ignore other message types
